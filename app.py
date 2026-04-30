@@ -1,16 +1,80 @@
-# app.py
 import streamlit as st
 import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import yfinance as yf
+import ta
 
-from data_fetch.screener import get_screener_data
-from data_fetch.yahoo import get_yahoo_data
-from indicators.technicals import compute_trend
-from scoring.model import compute_score
-from alerts.engine import generate_alerts
-from db.database import save_data, load_old
+st.title("📊 Stock Dashboard")
 
-st.title("📊 Stock Intelligence Dashboard")
+# --- Screener Data ---
+def get_screener_data(symbol):
+    url = f"https://www.screener.in/company/{symbol}/"
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, "html.parser")
 
+    def extract(label):
+        try:
+            return soup.find("td", string=label).find_next_sibling("td").text.strip()
+        except:
+            return None
+
+    return {
+        "PE": extract("Stock P/E"),
+        "PB": extract("Price to book value"),
+        "ROE": extract("Return on equity"),
+        "ROCE": extract("Return on capital employed"),
+        "OPM": extract("Operating profit margin"),
+        "MarketCap": extract("Market Cap"),
+        "Promoter": extract("Promoter holding"),
+    }
+
+# --- Yahoo Data ---
+def get_yahoo_data(symbol):
+    ticker = yf.Ticker(symbol + ".NS")
+    info = ticker.info
+    hist = ticker.history(period="6mo")
+
+    return {
+        "CMP": info.get("currentPrice"),
+        "52High": info.get("fiftyTwoWeekHigh"),
+        "52Low": info.get("fiftyTwoWeekLow"),
+        "Recommendation": info.get("recommendationKey"),
+        "Close": hist["Close"],
+        "Volume": hist["Volume"]
+    }
+
+# --- Trend ---
+def compute_trend(close, volume):
+    df = pd.DataFrame({"close": close, "volume": volume})
+
+    df["ema50"] = ta.trend.ema_indicator(df["close"], 50)
+    df["ema200"] = ta.trend.ema_indicator(df["close"], 200)
+    df["rsi"] = ta.momentum.rsi(df["close"], 14)
+    df["vol_avg"] = df["volume"].rolling(20).mean()
+
+    latest = df.iloc[-1]
+    score = 0
+
+    if latest["close"] > latest["ema50"] > latest["ema200"]:
+        score += 40
+
+    if 50 < latest["rsi"] < 70:
+        score += 30
+
+    if latest["volume"] > latest["vol_avg"]:
+        score += 30
+
+    if score > 70:
+        return "Strong Uptrend", score
+    elif score > 55:
+        return "Weak Uptrend", score
+    elif score > 40:
+        return "Sideways", score
+    else:
+        return "Downtrend", score
+
+# --- Upload ---
 uploaded = st.file_uploader("Upload Excel", type=["xlsx"])
 
 if uploaded:
@@ -19,35 +83,31 @@ if uploaded:
     results = []
 
     for symbol in df["Symbol"]:
-        s = get_screener_data(symbol)
-        y = get_yahoo_data(symbol)
+        try:
+            s = get_screener_data(symbol)
+            y = get_yahoo_data(symbol)
 
-        trend, trend_score = compute_trend(y["Close"], y["Volume"])
+            trend, trend_score = compute_trend(y["Close"], y["Volume"])
 
-        row = {
-            "Symbol": symbol,
-            "CMP": y["CMP"],
-            "52High": y["52High"],
-            "52Low": y["52Low"],
-            "PE": float(s["PE"] or 0),
-            "PB": float(s["PB"] or 0),
-            "ROE": float(s["ROE"] or 0),
-            "ROCE": float(s["ROCE"] or 0),
-            "OPM": float(s["OPM"] or 0),
-            "MarketCap": float(s["MarketCap"] or 0),
-            "Promoter": float(s["Promoter"] or 0),
-            "Trend": trend,
-            "TrendScore": trend_score,
-            "Recommendation": y["Recommendation"]
-        }
-
-        results.append(row)
+            results.append({
+                "Symbol": symbol,
+                "CMP": y["CMP"],
+                "52W High": y["52High"],
+                "52W Low": y["52Low"],
+                "PE": s["PE"],
+                "PB": s["PB"],
+                "ROE": s["ROE"],
+                "ROCE": s["ROCE"],
+                "OPM": s["OPM"],
+                "Market Cap": s["MarketCap"],
+                "Promoter %": s["Promoter"],
+                "Trend": trend,
+                "Trend Score": trend_score,
+                "Recommendation": y["Recommendation"]
+            })
+        except:
+            st.warning(f"Error fetching {symbol}")
 
     final = pd.DataFrame(results)
 
-    final["Score"] = final.apply(compute_score, axis=1)
-    final["Alerts"] = final.apply(generate_alerts, axis=1)
-
-    st.dataframe(final.sort_values("Score", ascending=False))
-
-    save_data(final)
+    st.dataframe(final)
