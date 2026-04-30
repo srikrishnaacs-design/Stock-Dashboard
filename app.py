@@ -104,35 +104,33 @@ if uploaded:
     results = []
 
     for symbol in df["Symbol"]:
-    time.sleep(random.uniform(1, 2))  # 👈 indented
+    time.sleep(random.uniform(1, 2))
 
     try:
         s = get_screener_data(symbol)
         y = get_yahoo_data(symbol)
 
         trend, trend_score = compute_trend(y["Close"], y["Volume"])
-        pe_value = float(str(s["PE"]).replace('%','')) if s["PE"] else None
-            industry_pe = pe_value * 1.2 if pe_value else None
 
-            results.append({
-                "Symbol": symbol,
-                "CMP": y["CMP"],
-                "52W High": y["52High"],
-                "52W Low": y["52Low"],
-                "PE": pe_value,
-                "Industry PE": industry_pe,
-                "PB": s["PB"] if s["PB"] else "N/A",
-                "ROE": s["ROE"] if s["ROE"] else "N/A",
-                "ROCE": s["ROCE"] if s["ROCE"] else "N/A",
-                "OPM": s["OPM"] if s["OPM"] else "N/A",
-                "Market Cap": s["MarketCap"],
-                "Promoter %": s["Promoter"] if s["Promoter"] else "N/A",
-                "Trend": trend,
-                "Trend Score": trend_score,
-                "Recommendation": y["Recommendation"]
-            })
-        except:
-            st.warning(f"Error fetching {symbol}")
+        results.append({
+            "Symbol": symbol,
+            "CMP": y["CMP"],
+            "52W High": y["52High"],
+            "52W Low": y["52Low"],
+            "PE": s["PE"],
+            "PB": s["PB"],
+            "ROE": s["ROE"],
+            "ROCE": s["ROCE"],
+            "OPM": s["OPM"],
+            "Market Cap": s["MarketCap"],
+            "Promoter %": s["Promoter"],
+            "Trend": trend,
+            "Trend Score": trend_score,
+            "Recommendation": y["Recommendation"]
+        })
+
+    except:
+        st.warning(f"Error fetching {symbol}")
 
     final = pd.DataFrame(results)
 
