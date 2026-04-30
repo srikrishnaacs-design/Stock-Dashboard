@@ -109,58 +109,59 @@ if uploaded:
             st.warning(f"Error fetching {symbol}")
 
     final = pd.DataFrame(results)
-    
-# --- Scoring ---
-def compute_score(row):
-    score = 0
 
-    try:
-        if row["Trend Score"]:
-            score += (row["Trend Score"] / 100) * 15
-    except:
-        pass
+    # --- Scoring ---
+    def compute_score(row):
+        score = 0
 
-    try:
-        if row["ROE"]:
-            score += min(float(row["ROE"].replace('%','')), 25) / 25 * 10
-    except:
-        pass
+        try:
+            if row["Trend Score"]:
+                score += (row["Trend Score"] / 100) * 15
+        except:
+            pass
 
-    try:
-        if row["ROCE"]:
-            score += min(float(row["ROCE"].replace('%','')), 30) / 30 * 20
-    except:
-        pass
+        try:
+            if row["ROE"]:
+                score += min(float(str(row["ROE"]).replace('%','')), 25) / 25 * 10
+        except:
+            pass
 
-    return round(score, 2)
+        try:
+            if row["ROCE"]:
+                score += min(float(str(row["ROCE"]).replace('%','')), 30) / 30 * 20
+        except:
+            pass
 
-final["Score"] = final.apply(compute_score, axis=1)
+        return round(score, 2)
 
-# --- Alerts ---
-def generate_alerts(row):
-    alerts = []
+    final["Score"] = final.apply(compute_score, axis=1)
 
-    try:
-        if row["Trend"] == "Strong Uptrend":
-            alerts.append("Bullish")
-        if row["Trend"] == "Downtrend":
-            alerts.append("Bearish")
+    # --- Alerts ---
+    def generate_alerts(row):
+        alerts = []
 
-        if float(row["ROCE"].replace('%','')) > 20:
-            alerts.append("High ROCE")
+        try:
+            if row["Trend"] == "Strong Uptrend":
+                alerts.append("Bullish")
+            if row["Trend"] == "Downtrend":
+                alerts.append("Bearish")
 
-        if float(row["ROE"].replace('%','')) > 15:
-            alerts.append("Strong ROE")
+            if float(str(row["ROCE"]).replace('%','')) > 20:
+                alerts.append("High ROCE")
 
-    except:
-        pass
+            if float(str(row["ROE"]).replace('%','')) > 15:
+                alerts.append("Strong ROE")
 
-    return ", ".join(alerts)
+        except:
+            pass
 
-final["Alerts"] = final.apply(generate_alerts, axis=1)
+        return ", ".join(alerts)
 
-st.dataframe(final.sort_values("Score", ascending=False))
-st.subheader("🏆 Top Stocks")
+    final["Alerts"] = final.apply(generate_alerts, axis=1)
 
-top = final.sort_values("Score", ascending=False).head(5)
-st.dataframe(top)
+    st.subheader("🏆 Top Stocks")
+    top = final.sort_values("Score", ascending=False).head(5)
+    st.dataframe(top)
+
+    st.subheader("📊 Full Dashboard")
+    st.dataframe(final.sort_values("Score", ascending=False))
