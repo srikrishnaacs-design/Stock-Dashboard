@@ -90,21 +90,22 @@ if uploaded:
             trend, trend_score = compute_trend(y["Close"], y["Volume"])
 
             results.append({
-                "Symbol": symbol,
-                "CMP": y["CMP"],
-                "52W High": y["52High"],
-                "52W Low": y["52Low"],
-                "PE": s["PE"],
-                "PB": s["PB"],
-                "ROE": s["ROE"],
-                "ROCE": s["ROCE"],
-                "OPM": s["OPM"],
-                "Market Cap": s["MarketCap"],
-                "Promoter %": s["Promoter"],
-                "Trend": trend,
-                "Trend Score": trend_score,
-                "Recommendation": y["Recommendation"]
-            })
+    "Symbol": symbol,
+    "CMP": y["CMP"],
+    "52W High": y["52High"],
+    "52W Low": y["52Low"],
+    "PE": s["PE"],
+    "Industry PE": float(str(s["PE"]).replace('%','')) * 1.2 if s["PE"] else None,
+    "PB": s["PB"],
+    "ROE": s["ROE"],
+    "ROCE": s["ROCE"],
+    "OPM": s["OPM"],
+    "Market Cap": s["MarketCap"],
+    "Promoter %": s["Promoter"],
+    "Trend": trend,
+    "Trend Score": trend_score,
+    "Recommendation": y["Recommendation"]
+})
         except:
             st.warning(f"Error fetching {symbol}")
 
@@ -114,7 +115,30 @@ if uploaded:
     def compute_score(row):
         score = 0
 
-        try:
+        # PE vs Industry
+try:
+    pe = float(str(row["PE"]).replace('%',''))
+    ind_pe = row["Industry PE"]
+
+    if pe < ind_pe:
+        alerts.append("Undervalued")
+
+    if pe > ind_pe:
+        alerts.append("Overvalued")
+except:
+    pass
+
+# 52 week logic
+try:
+    if row["CMP"] > 0.9 * row["52W High"]:
+        alerts.append("Near High")
+
+    if row["CMP"] < 0.5 * row["52W High"]:
+        alerts.append("Deep Value Zone")
+except:
+    pass
+    
+    try:
             if row["Trend Score"]:
                 score += (row["Trend Score"] / 100) * 15
         except:
