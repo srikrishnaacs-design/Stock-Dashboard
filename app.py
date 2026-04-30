@@ -187,7 +187,7 @@ if uploaded:
     final["Alerts"] = final.apply(generate_alerts, axis=1)
 
     # --- Filter ---
-    min_score = st.slider("Minimum Score", 0, 100, 20)
+    min_score = st.slider("Minimum Score", 0, 100, 0)
     filtered = final[final["Score"] >= min_score]
 
     st.write(f"Showing {len(filtered)} stocks")
