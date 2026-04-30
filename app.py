@@ -109,6 +109,7 @@ if uploaded:
             st.warning(f"Error fetching {symbol}")
 
     final = pd.DataFrame(results)
+    
 # --- Scoring ---
 def compute_score(row):
     score = 0
@@ -134,6 +135,7 @@ def compute_score(row):
     return round(score, 2)
 
 final["Score"] = final.apply(compute_score, axis=1)
+
 # --- Alerts ---
 def generate_alerts(row):
     alerts = []
