@@ -5,7 +5,8 @@ from bs4 import BeautifulSoup
 import yfinance as yf
 import ta
 
-st.title("📊 Stock Dashboard")
+st.set_page_config(layout="wide")
+st.title("📊 Stock Intelligence Dashboard")
 
 # --- Screener Data ---
 def get_screener_data(symbol):
@@ -75,7 +76,7 @@ def compute_trend(close, volume):
         return "Downtrend", score
 
 # --- Upload ---
-uploaded = st.file_uploader("Upload Excel", type=["xlsx"])
+uploaded = st.file_uploader("Upload Excel (Column name must be 'Symbol')", type=["xlsx"])
 
 if uploaded:
     df = pd.read_excel(uploaded)
@@ -89,23 +90,26 @@ if uploaded:
 
             trend, trend_score = compute_trend(y["Close"], y["Volume"])
 
+            pe_value = float(str(s["PE"]).replace('%','')) if s["PE"] else None
+            industry_pe = pe_value * 1.2 if pe_value else None
+
             results.append({
-    "Symbol": symbol,
-    "CMP": y["CMP"],
-    "52W High": y["52High"],
-    "52W Low": y["52Low"],
-    "PE": s["PE"],
-    "Industry PE": float(str(s["PE"]).replace('%','')) * 1.2 if s["PE"] else None,
-    "PB": s["PB"],
-    "ROE": s["ROE"],
-    "ROCE": s["ROCE"],
-    "OPM": s["OPM"],
-    "Market Cap": s["MarketCap"],
-    "Promoter %": s["Promoter"],
-    "Trend": trend,
-    "Trend Score": trend_score,
-    "Recommendation": y["Recommendation"]
-})
+                "Symbol": symbol,
+                "CMP": y["CMP"],
+                "52W High": y["52High"],
+                "52W Low": y["52Low"],
+                "PE": pe_value,
+                "Industry PE": industry_pe,
+                "PB": s["PB"],
+                "ROE": s["ROE"],
+                "ROCE": s["ROCE"],
+                "OPM": s["OPM"],
+                "Market Cap": s["MarketCap"],
+                "Promoter %": s["Promoter"],
+                "Trend": trend,
+                "Trend Score": trend_score,
+                "Recommendation": y["Recommendation"]
+            })
         except:
             st.warning(f"Error fetching {symbol}")
 
@@ -115,32 +119,8 @@ if uploaded:
     def compute_score(row):
         score = 0
 
-        # PE vs Industry
-try:
-    pe = float(str(row["PE"]).replace('%',''))
-    ind_pe = row["Industry PE"]
-
-    if pe < ind_pe:
-        alerts.append("Undervalued")
-
-    if pe > ind_pe:
-        alerts.append("Overvalued")
-except:
-    pass
-
-# 52 week logic
-try:
-    if row["CMP"] > 0.9 * row["52W High"]:
-        alerts.append("Near High")
-
-    if row["CMP"] < 0.5 * row["52W High"]:
-        alerts.append("Deep Value Zone")
-except:
-    pass
-    
-    try:
-            if row["Trend Score"]:
-                score += (row["Trend Score"] / 100) * 15
+        try:
+            score += (row["Trend Score"] / 100) * 15
         except:
             pass
 
@@ -156,6 +136,12 @@ except:
         except:
             pass
 
+        try:
+            if row["PE"] and row["Industry PE"] and row["PE"] < row["Industry PE"]:
+                score += 15
+        except:
+            pass
+
         return round(score, 2)
 
     final["Score"] = final.apply(compute_score, axis=1)
@@ -165,17 +151,34 @@ except:
         alerts = []
 
         try:
-            if row["Trend"] == "Strong Uptrend":
-                alerts.append("Bullish")
-            if row["Trend"] == "Downtrend":
-                alerts.append("Bearish")
+            if row["PE"] < row["Industry PE"]:
+                alerts.append("Undervalued")
+            else:
+                alerts.append("Overvalued")
+        except:
+            pass
 
+        try:
+            if row["CMP"] > 0.9 * row["52W High"]:
+                alerts.append("Near High")
+
+            if row["CMP"] < 0.5 * row["52W High"]:
+                alerts.append("Deep Value")
+        except:
+            pass
+
+        if "Uptrend" in row["Trend"]:
+            alerts.append("Bullish")
+
+        if "Downtrend" in row["Trend"]:
+            alerts.append("Bearish")
+
+        try:
             if float(str(row["ROCE"]).replace('%','')) > 20:
                 alerts.append("High ROCE")
 
             if float(str(row["ROE"]).replace('%','')) > 15:
                 alerts.append("Strong ROE")
-
         except:
             pass
 
@@ -183,9 +186,16 @@ except:
 
     final["Alerts"] = final.apply(generate_alerts, axis=1)
 
-    st.subheader("🏆 Top Stocks")
-    top = final.sort_values("Score", ascending=False).head(5)
-    st.dataframe(top)
+    # --- Filter ---
+    min_score = st.slider("Minimum Score", 0, 100, 20)
+    filtered = final[final["Score"] >= min_score]
 
+    st.write(f"Showing {len(filtered)} stocks")
+
+    # --- Top 5 ---
+    st.subheader("🏆 Top Stocks")
+    st.dataframe(filtered.sort_values("Score", ascending=False).head(5))
+
+    # --- Full Table ---
     st.subheader("📊 Full Dashboard")
-    st.dataframe(final.sort_values("Score", ascending=False))
+    st.dataframe(filtered.sort_values("Score", ascending=False))
