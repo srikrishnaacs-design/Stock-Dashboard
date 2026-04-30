@@ -11,25 +11,31 @@ st.title("📊 Stock Intelligence Dashboard")
 # --- Screener Data ---
 def get_screener_data(symbol):
     url = f"https://www.screener.in/company/{symbol}/"
-    r = requests.get(url)
+    headers = {"User-Agent": "Mozilla/5.0"}
+    r = requests.get(url, headers=headers)
+
     soup = BeautifulSoup(r.text, "html.parser")
 
-    def extract(label):
-        try:
-            return soup.find("td", string=label).find_next_sibling("td").text.strip()
-        except:
-            return None
+    data = {}
+
+    try:
+        ratios = soup.select("ul#top-ratios li")
+        for item in ratios:
+            name = item.select_one("span.name").text.strip()
+            value = item.select_one("span.number").text.strip()
+            data[name] = value
+    except:
+        pass
 
     return {
-        "PE": extract("Stock P/E"),
-        "PB": extract("Price to book value"),
-        "ROE": extract("Return on equity"),
-        "ROCE": extract("Return on capital employed"),
-        "OPM": extract("Operating profit margin"),
-        "MarketCap": extract("Market Cap"),
-        "Promoter": extract("Promoter holding"),
+        "PE": data.get("Stock P/E"),
+        "PB": data.get("Price to book value"),
+        "ROE": data.get("Return on equity"),
+        "ROCE": data.get("Return on capital employed"),
+        "OPM": data.get("Operating profit margin"),
+        "MarketCap": data.get("Market Cap"),
+        "Promoter": data.get("Promoter holding"),
     }
-
 # --- Yahoo Data ---
 def get_yahoo_data(symbol):
     ticker = yf.Ticker(symbol + ".NS")
