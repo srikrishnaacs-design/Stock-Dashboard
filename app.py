@@ -104,15 +104,14 @@ if uploaded:
     results = []
 
     for symbol in df["Symbol"]:
-    time.sleep(random.uniform(1, 2))
-        try:
-            s = get_screener_data(symbol)
-            st.write(symbol, s)
-            y = get_yahoo_data(symbol)
+    time.sleep(random.uniform(1, 2))  # 👈 indented
 
-            trend, trend_score = compute_trend(y["Close"], y["Volume"])
+    try:
+        s = get_screener_data(symbol)
+        y = get_yahoo_data(symbol)
 
-            pe_value = float(str(s["PE"]).replace('%','')) if s["PE"] else None
+        trend, trend_score = compute_trend(y["Close"], y["Volume"])
+        pe_value = float(str(s["PE"]).replace('%','')) if s["PE"] else None
             industry_pe = pe_value * 1.2 if pe_value else None
 
             results.append({
