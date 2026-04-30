@@ -4,6 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 import yfinance as yf
 import ta
+import time
+import random
 
 st.set_page_config(layout="wide")
 st.title("📊 Stock Intelligence Dashboard")
@@ -12,30 +14,42 @@ st.title("📊 Stock Intelligence Dashboard")
 def get_screener_data(symbol):
     url = f"https://www.screener.in/company/{symbol}/"
     headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers)
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    data = {}
-
+    
     try:
-        ratios = soup.select("ul#top-ratios li")
-        for item in ratios:
-            name = item.select_one("span.name").text.strip()
-            value = item.select_one("span.number").text.strip()
-            data[name] = value
-    except:
-        pass
+        r = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(r.text, "html.parser")
 
-    return {
-        "PE": data.get("Stock P/E"),
-        "PB": data.get("Price to book value"),
-        "ROE": data.get("Return on equity"),
-        "ROCE": data.get("Return on capital employed"),
-        "OPM": data.get("Operating profit margin"),
-        "MarketCap": data.get("Market Cap"),
-        "Promoter": data.get("Promoter holding"),
-    }
+        data = {}
+
+        # Extract ALL ratios safely
+        for li in soup.select("ul#top-ratios li"):
+            try:
+                name = li.select_one("span.name").text.strip()
+                value = li.select_one("span.number").text.strip()
+                data[name] = value
+            except:
+                continue
+
+        return {
+            "PE": data.get("Stock P/E"),
+            "PB": data.get("Price to book value"),
+            "ROE": data.get("Return on equity"),
+            "ROCE": data.get("Return on capital employed"),
+            "OPM": data.get("Operating profit margin"),
+            "MarketCap": data.get("Market Cap"),
+            "Promoter": data.get("Promoter holding"),
+        }
+
+    except:
+        return {
+            "PE": None,
+            "PB": None,
+            "ROE": None,
+            "ROCE": None,
+            "OPM": None,
+            "MarketCap": None,
+            "Promoter": None,
+        }
 # --- Yahoo Data ---
 def get_yahoo_data(symbol):
     ticker = yf.Ticker(symbol + ".NS")
@@ -90,8 +104,10 @@ if uploaded:
     results = []
 
     for symbol in df["Symbol"]:
+    time.sleep(random.uniform(1, 2))
         try:
             s = get_screener_data(symbol)
+            st.write(symbol, s)
             y = get_yahoo_data(symbol)
 
             trend, trend_score = compute_trend(y["Close"], y["Volume"])
@@ -106,12 +122,12 @@ if uploaded:
                 "52W Low": y["52Low"],
                 "PE": pe_value,
                 "Industry PE": industry_pe,
-                "PB": s["PB"],
-                "ROE": s["ROE"],
-                "ROCE": s["ROCE"],
-                "OPM": s["OPM"],
+                "PB": s["PB"] if s["PB"] else "N/A",
+                "ROE": s["ROE"] if s["ROE"] else "N/A",
+                "ROCE": s["ROCE"] if s["ROCE"] else "N/A",
+                "OPM": s["OPM"] if s["OPM"] else "N/A",
                 "Market Cap": s["MarketCap"],
-                "Promoter %": s["Promoter"],
+                "Promoter %": s["Promoter"] if s["Promoter"] else "N/A",
                 "Trend": trend,
                 "Trend Score": trend_score,
                 "Recommendation": y["Recommendation"]
