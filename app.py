@@ -104,14 +104,15 @@ if uploaded:
     results = []
 
     for symbol in df["Symbol"]:
+    import time, random
     time.sleep(random.uniform(1, 2))
-
+    
     try:
         s = get_screener_data(symbol)
         y = get_yahoo_data(symbol)
-
+    
         trend, trend_score = compute_trend(y["Close"], y["Volume"])
-
+    
         results.append({
             "Symbol": symbol,
             "CMP": y["CMP"],
@@ -128,9 +129,9 @@ if uploaded:
             "Trend Score": trend_score,
             "Recommendation": y["Recommendation"]
         })
-
-    except:
-        st.warning(f"Error fetching {symbol}")
+    
+    except Exception as e:
+        st.warning(f"{symbol} failed")
 
     final = pd.DataFrame(results)
 
