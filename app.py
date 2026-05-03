@@ -104,8 +104,8 @@ if uploaded:
     results = []
 
     for symbol in df["Symbol"]:
-    import time, random
-    time.sleep(random.uniform(1, 2))
+        import time,random
+        time.sleep(random.uniform(1, 2))
     
     try:
         s = get_screener_data(symbol)
